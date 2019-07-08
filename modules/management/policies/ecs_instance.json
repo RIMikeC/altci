@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::645025723021:role/cd",
+        "arn:aws:iam::190033888840:role/cd",
+        "arn:aws:iam::561276803310:role/cd",
+        "arn:aws:iam::665109639135:role/cd"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+jobs:
+- name: plan_dataops-terraform_management
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: "git_repo_dataops-terraform"
+      trigger: true
+    - get: "terraform_docker_image"
+  - task: "plan"
+    image: "terraform_docker_image"
+    config:
+      platform: linux
+      inputs:
+      - name: "git_repo_dataops-terraform"
+      params:
+        GITHUB_PRIVATE_KEY: ((github_private_key))
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            mkdir ~/.ssh
+            echo -e "$GITHUB_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 0600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com > /etc/ssh/ssh_known_hosts
+            cd git_repo_dataops-terraform/providers/aws/management
+            cp config/cd_override.tf ./
+            terraform init
+            terraform plan
+    on_success:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: success
+        context: "plan management"
+    on_failure:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: failure
+        context: "plan management"
+- name: plan_dataops-terraform_dev
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: "git_repo_dataops-terraform"
+      trigger: true
+      version: every
+    - get: "terraform_docker_image"
+  - task: "plan"
+    image: "terraform_docker_image"
+    config:
+      platform: linux
+      inputs:
+      - name: "git_repo_dataops-terraform"
+      params:
+        GITHUB_PRIVATE_KEY: ((github_private_key))
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            mkdir ~/.ssh
+            echo -e "$GITHUB_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 0600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com > /etc/ssh/ssh_known_hosts
+            cd git_repo_dataops-terraform/providers/aws/dev
+            cp config/cd_override.tf ./
+            terraform init
+            terraform plan
+    on_success:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: success
+        context: "plan dev"
+    on_failure:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: failure
+        context: "plan dev"
+- name: plan_dataops-terraform_staging
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: "git_repo_dataops-terraform"
+      trigger: true
+    - get: "terraform_docker_image"
+  - task: "plan"
+    image: "terraform_docker_image"
+    config:
+      platform: linux
+      inputs:
+      - name: "git_repo_dataops-terraform"
+      params:
+        GITHUB_PRIVATE_KEY: ((github_private_key))
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            mkdir ~/.ssh
+            echo -e "$GITHUB_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 0600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com > /etc/ssh/ssh_known_hosts
+            cd git_repo_dataops-terraform/providers/aws/staging
+            cp config/cd_override.tf ./
+            terraform init
+            terraform plan
+    on_success:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: success
+        context: "plan staging"
+    on_failure:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: failure
+        context: "plan staging"
+- name: plan_dataops-terraform_prod
+  serial: true
+  public: true
+  plan:
+  - aggregate:
+    - get: "git_repo_dataops-terraform"
+      trigger: true
+    - get: "terraform_docker_image"
+  - task: "plan"
+    image: "terraform_docker_image"
+    config:
+      platform: linux
+      inputs:
+      - name: "git_repo_dataops-terraform"
+      params:
+        GITHUB_PRIVATE_KEY: ((github_private_key))
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            mkdir ~/.ssh
+            echo -e "$GITHUB_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 0600 ~/.ssh/id_rsa
+            ssh-keyscan -H github.com > /etc/ssh/ssh_known_hosts
+            cd git_repo_dataops-terraform/providers/aws/prod
+            cp config/cd_override.tf ./
+            terraform init
+            terraform plan
+    on_success:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: success
+        context: "plan prod"
+    on_failure:
+      put: "git_repo_dataops-terraform"
+      params:
+        path: "git_repo_dataops-terraform"
+        status: failure
+        context: "plan prod"
+resources:
+- name: "terraform_docker_image"
+  type: docker-image
+  source:
+    repository: "hashicorp/terraform"
+    tag: "0.11.7"
+- name: "git_repo_dataops-terraform"
+  type: pull-request
+  source:
+    access_token: ((github_access_key))
+    private_key: ((github_private_key))
+    repo: "River-Island/dataops-terraform"
+    uri: "git@github.com:River-Island/dataops-terraform.git"
+    every: true
+
+resource_types:
+- name: pull-request
+  type: docker-image
+  source:
+    repository: jtarchie/pr

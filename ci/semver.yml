@@ -1,0 +1,72 @@
+jobs:
+- name: s3_semver
+  serial: true
+  public: true
+  plan:
+  - get: "container_image"
+  - task: "sts_assume_role"
+    image: "container_image"
+    config:
+      platform: linux
+      outputs:
+        - name: semver_sts
+      params:
+        SEMVER_STS_PATH: "/dev/shm/semver_sts.json"
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            aws sts assume-role --role-arn arn:aws:iam::125479865773:role/cd --role-session-name semver_session > "$SEMVER_STS_PATH"
+            cp -v "$SEMVER_STS_PATH" semver_sts/
+  - task: "sts_assume_role_env_vars"
+    image: "container_image"
+    config:
+      platform: linux
+      inputs:
+        - name: semver_sts
+      outputs:
+        - name: semver_sts_env
+      params:
+        SEMVER_STS_PATH: "semver_sts/semver_sts.json"
+        SEMVER_ENVVARS_PATH: "/dev/shm/semver_sts_env.sh"
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            touch "$SEMVER_ENVVARS_PATH"
+            AWS_SECRET_ACCESS_KEY=$(jq -r ".Credentials.SecretAccessKey" $SEMVER_STS_PATH)
+            echo "export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> "$SEMVER_ENVVARS_PATH"
+            AWS_ACCESS_KEY_ID=$(jq -r ".Credentials.AccessKeyId" $SEMVER_STS_PATH)
+            echo "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> "$SEMVER_ENVVARS_PATH"
+            AWS_SESSION_TOKEN=$(jq -r ".Credentials.SessionToken" $SEMVER_STS_PATH)
+            echo "export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> "$SEMVER_ENVVARS_PATH"
+            cp -v "$SEMVER_ENVVARS_PATH" semver_sts_env/
+  - task: "create_bucket"
+    image: "container_image"
+    config:
+      platform: linux
+      inputs:
+        - name: semver_sts_env
+      params:
+        SEMVER_ENVVARS_PATH: "semver_sts_env/semver_sts_env.sh"
+        MAIN_S3_BUCKET: "product-management-concourse-versions"
+        NEW_S3_BUCKET: "product-template-ui/version"
+      run:
+        path: sh
+        args:
+          - "-ec"
+          - |
+            source "$SEMVER_ENVVARS_PATH"
+            touch version
+            echo -n "0.0.1" > version
+            aws s3api put-object --bucket $MAIN_S3_BUCKET --key $NEW_S3_BUCKET --body version
+            aws s3 ls s3://$MAIN_S3_BUCKET
+            aws s3 ls s3://$MAIN_S3_BUCKET/$NEW_S3_BUCKET
+resources:
+- name: "container_image"
+  type: docker-image
+  source:
+    repository: "stefancocora/kops-tools"
+    tag: "latest"
